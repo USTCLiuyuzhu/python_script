@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+from collections import defaultdict
 
 # 读取.c文件的内容
 path1 = 'example.c'
@@ -132,7 +133,56 @@ def compare_dicts(DictExcel, DictCH):
     return updated_Dict1
 
 
+def get_signal_list(input_data):
+    """
+    input_data = {
+        "16_1.0_1.0": {
+            "信号名": "S6",
+            "ID名称": "0x16",
+            "起始位": 1.0,
+            "结束位": 1.0,
+            "是否存在": True,
+            "CanMap信号名称": "SignalName8",
+            "CanMap信号是否存在": True
+        }
+        # 可以添加更多的字典项
+    }
+    """
+
+    # 过滤出 CanMap信号是否存在 为 True 的项
+    filtered_data = {k: v for k, v in input_data.items() if v["CanMap信号是否存在"]}
+
+    # 按 ID名称 进行分组
+    grouped_data = defaultdict(list)
+    for key, value in filtered_data.items():
+        grouped_data[value["ID名称"]].append((key, value))
+
+    # 在组内按 起始位 排序，并添加 所属组信号数
+    for group in grouped_data.values():
+        group.sort(key=lambda x: x[1]["起始位"])
+        group_signal_count = len(group)
+        for _, item in group:
+            item["所属组信号数"] = group_signal_count
+
+    # 按 ID名称 从小到大排序
+    sorted_groups = sorted(grouped_data.items(), key=lambda x: x[0])
+
+    # 组内按 起始位 从小到大排序，并将排序后的信息存放在列表中返回
+    result = []
+    for id_name, group in sorted_groups:
+        for key, value in group:
+            result.append((key, value))
+
+    # 输出结果
+    for item in result:
+        print(item)
+
+    return result
+
 Dict2 = get_can_matrix_ch(path1)
 Dict1 = get_can_matrix_excel(path2)
 Dict = compare_dicts(Dict1, Dict2)
 
+L = get_signal_list(Dict)
+
+print(L)

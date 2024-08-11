@@ -1,0 +1,92 @@
+import os
+import shutil
+import filecmp
+from datetime import datetime
+
+
+'''
+ 1.获取文件夹A下所有文件信息；
+ 2.获取文件夹B下所有文件信息；
+ 3.遍历A文件夹下所有文件并判断，B中是否存在同名文件并标记，对于存在的同名文件比较两文件是否相同；
+ 4.遍历A文件夹下所有文件，若为.c文件重命名为.cpp文件，若为h文件则保持不变，并将所有.c .h后的文件复制在C文件夹下，所有.cpp .h文件复制在D文件夹下
+'''
+
+def get_files_info(folder_path):
+    """获取文件夹下所有文件的信息"""
+    files_info = []
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            full_path = os.path.join(root, file)
+            files_info.append({
+                'name': file,
+                'path': full_path,
+                'size': os.path.getsize(full_path)
+            })
+    return files_info
+
+
+def compare_and_mark_files(folder_a_info, folder_b_info, log_file):
+    """遍历A文件夹下所有文件并判断B中是否存在同名文件并标记，输出到日志文件"""
+    b_files = {file['name']: file['path'] for file in folder_b_info}
+    for file_a in folder_a_info:
+        file_name = file_a['name']
+        if file_name in b_files:
+            file_a['exists_in_b'] = True
+            file_a['is_identical'] = filecmp.cmp(file_a['path'], b_files[file_name], shallow=False)
+            log_file.write(f"文件 '{file_name}' 在B文件夹中存在,内容 {'相同' if file_a['is_identical'] else '###### 不同 ######'}\n")
+        else:
+            file_a['exists_in_b'] = False
+            file_a['is_identical'] = False
+            log_file.write(f"文件 '{file_name}' 在B文件夹中不存在。\n")
+
+
+def rename_and_copy_files(folder_a_info, folder_c, folder_d, log_file):
+    """重命名和复制文件"""
+    for file in folder_a_info:
+        if file['name'].endswith('.c'):
+            new_name = file['name'].replace('.c', '.cpp')
+            dest_path_c = os.path.join(folder_c, file['name'])
+            dest_path_d = os.path.join(folder_d, new_name)
+            log_file.write(f"重命名并复制: {file['name']} -> {new_name}\n")
+        elif file['name'].endswith('.h'):
+            new_name = file['name']
+            dest_path_c = os.path.join(folder_c, new_name)
+            dest_path_d = os.path.join(folder_d, new_name)
+            log_file.write(f"复制: {file['name']} -> {new_name}\n")
+        else:
+            continue
+
+        # 复制到C文件夹
+        if dest_path_c:
+            shutil.copyfile(file['path'], dest_path_c)
+
+        # 复制到D文件夹
+        shutil.copyfile(file['path'], dest_path_d)
+
+
+if __name__ == "__main__":
+    folder_a = "A"  # 修改为实际文件夹路径
+    folder_b = "B"  # 修改为实际文件夹路径
+    folder_c = "C"  # 修改为实际文件夹路径
+    folder_d = "D"  # 修改为实际文件夹路径
+
+    log_file_path = "log.txt"
+
+    # 打开日志文件
+    with open(log_file_path, 'w', encoding='utf-8') as log_file:
+        # 记录运行日期
+        log_file.write(f"运行日期: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        log_file.write("="*40 + "\n")
+
+        # 1. 获取文件夹A和B下所有文件信息
+        folder_a_info = get_files_info(folder_a)
+        folder_b_info = get_files_info(folder_b)
+
+        # 2. 遍历A文件夹下所有文件并判断B中是否存在同名文件并标记，并打印信息
+        compare_and_mark_files(folder_a_info, folder_b_info, log_file)
+
+        # 3. 重命名和复制文件
+        rename_and_copy_files(folder_a_info, folder_c, folder_d, log_file)
+
+        log_file.write("="*40 + "\n")
+        log_file.write("操作完成。\n")
